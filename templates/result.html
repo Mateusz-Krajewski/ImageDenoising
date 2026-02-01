@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wyniki - Image Denoising {{ version|upper }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .version-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+        }
+        
+        .nav {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .nav a {
+            color: #667eea;
+            text-decoration: none;
+            margin: 0 10px;
+            padding: 8px 20px;
+            border-radius: 5px;
+            transition: background 0.3s;
+            display: inline-block;
+        }
+        
+        .nav a:hover {
+            background: #f0f0f0;
+        }
+        
+        .images-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+        
+        .image-card {
+            text-align: center;
+        }
+        
+        .image-card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .image-card img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 15px;
+        }
+        
+        .download-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            text-decoration: none;
+            display: inline-block;
+            transition: transform 0.3s;
+        }
+        
+        .download-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .actions {
+            text-align: center;
+            margin-top: 40px;
+        }
+        
+        .btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            text-decoration: none;
+            display: inline-block;
+            margin: 0 10px;
+            transition: transform 0.3s;
+            cursor: pointer;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .btn-secondary {
+            background: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✨ Wyniki przetwarzania</h1>
+            <span class="version-badge">{{ version|upper }}</span>
+        </div>
+        
+        <div class="nav">
+            <a href="/">🏠 Strona główna</a>
+            <a href="/{{ version }}/denoise">🔄 Przetwórz kolejne zdjęcie</a>
+            {% for v in versions %}
+                {% if v != version %}
+                <a href="/{{ v }}/denoise">{{ v|upper }}</a>
+                {% endif %}
+            {% endfor %}
+        </div>
+        
+        <div class="images-container">
+            <div class="image-card">
+                <h2>📷 Oryginalne zdjęcie</h2>
+                <img src="{{ original_image }}" alt="Oryginalne zdjęcie">
+                <a href="{{ original_image }}" download class="download-btn">💾 Pobierz oryginał</a>
+            </div>
+            
+            <div class="image-card">
+                <h2>✨ Poprawione zdjęcie</h2>
+                <img src="{{ denoised_image }}" alt="Poprawione zdjęcie">
+                <a href="{{ denoised_image }}" download class="download-btn">💾 Pobierz poprawione</a>
+            </div>
+        </div>
+        
+        <div class="actions">
+            <a href="/{{ version }}/denoise" class="btn">🔄 Przetwórz kolejne zdjęcie</a>
+            <a href="/" class="btn btn-secondary">🏠 Strona główna</a>
+        </div>
+    </div>
+</body>
+</html>

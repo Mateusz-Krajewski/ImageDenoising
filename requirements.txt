@@ -1,0 +1,9 @@
+pillow
+opencv-python
+torch
+torchvision
+numpy
+matplotlib
+tensorboard
+scikit-image
+flask
