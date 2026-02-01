@@ -37,6 +37,14 @@ v2_models = importlib.util.module_from_spec(spec2)
 spec2.loader.exec_module(v2_models)
 V2Model = v2_models.UNetDenoiser
 
+# Import v3 model (from models.py to avoid executing training code)
+v3_models_path = Path(__file__).parent / 'v3' / 'models.py'
+spec3 = importlib.util.spec_from_file_location("v3_models", v3_models_path)
+v3_models = importlib.util.module_from_spec(spec3)
+spec3.loader.exec_module(v3_models)
+# Prefer the improved variant by default
+V3Model = v3_models.ImprovedAutoencoder
+
 # ============================================================================
 # MODEL CONFIGURATION - Easy to add v3, v4, etc.
 # ============================================================================
@@ -53,6 +61,15 @@ MODEL_CONFIGS = {
         'model_path': 'v2/denoising_model.pth',  # Update if different path
         'dropout_rate': 0.05,
         'name': 'UNetDenoiser'
+    },
+    'v3': {
+        'model_class': V3Model,
+        'model_path': 'v3/denoising_model.pth',
+        'init_args': {
+            'latent_dim': 256,
+            'dropout_rate': 0.05
+        },
+        'name': 'ImprovedAutoencoder'
     },
     # Easy to add v3:
     # 'v3': {
@@ -74,8 +91,13 @@ def load_model(version):
     if not model_path.exists():
         raise FileNotFoundError(f"Model file not found: {model_path}")
     
-    # Create model instance
-    model = config['model_class'](dropout_rate=config['dropout_rate']).to(device)
+    # Create model instance. If init_args provided, use them for construction.
+    init_args = config.get('init_args')
+    if init_args is not None:
+        model = config['model_class'](**init_args).to(device)
+    else:
+        # Backwards-compatible fallback
+        model = config['model_class'](dropout_rate=config.get('dropout_rate', 0.0)).to(device)
     
     # Load weights
     checkpoint = torch.load(model_path, map_location=device)
