@@ -10,19 +10,13 @@ import sys
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 16MB max file size
 
-# Utwórz foldery
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs('static/results', exist_ok=True)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# ============================================================================
-# MODEL DEFINITIONS - Import model classes from version folders
-# ============================================================================
-
-# Import v1 model (from models.py to avoid executing training code)
 import importlib.util
 v1_models_path = Path(__file__).parent / 'v1' / 'models.py'
 spec1 = importlib.util.spec_from_file_location("v1_models", v1_models_path)
@@ -30,24 +24,17 @@ v1_models = importlib.util.module_from_spec(spec1)
 spec1.loader.exec_module(v1_models)
 V1Model = v1_models.ConvAutoencoder
 
-# Import v2 model (from models.py to avoid executing training code)
 v2_models_path = Path(__file__).parent / 'v2' / 'models.py'
 spec2 = importlib.util.spec_from_file_location("v2_models", v2_models_path)
 v2_models = importlib.util.module_from_spec(spec2)
 spec2.loader.exec_module(v2_models)
 V2Model = v2_models.UNetDenoiser
 
-# Import v3 model (from models.py to avoid executing training code)
-v3_models_path = Path(__file__).parent / 'v3' / 'models.py'
-spec3 = importlib.util.spec_from_file_location("v3_models", v3_models_path)
-v3_models = importlib.util.module_from_spec(spec3)
-spec3.loader.exec_module(v3_models)
-# Prefer the improved variant by default
-V3Model = v3_models.ImprovedAutoencoder
-
-# ============================================================================
-# MODEL CONFIGURATION - Easy to add v3, v4, etc.
-# ============================================================================
+# v3_models_path = Path(__file__).parent / 'v3' / 'models.py'
+# spec3 = importlib.util.spec_from_file_location("v3_models", v3_models_path)
+# v3_models = importlib.util.module_from_spec(spec3)
+# spec3.loader.exec_module(v3_models)
+# V3Model = v3_models.ImprovedAutoencoder
 
 MODEL_CONFIGS = {
     'v1': {
@@ -58,25 +45,18 @@ MODEL_CONFIGS = {
     },
     'v2': {
         'model_class': V2Model,
-        'model_path': 'v2/denoising_model.pth',  # Update if different path
+        'model_path': 'v2/denoising_model.pth',
         'dropout_rate': 0.05,
         'name': 'UNetDenoiser'
     },
-    'v3': {
-        'model_class': V3Model,
-        'model_path': 'v3/denoising_model.pth',
-        'init_args': {
-            'latent_dim': 256,
-            'dropout_rate': 0.05
-        },
-        'name': 'ImprovedAutoencoder'
-    },
-    # Easy to add v3:
     # 'v3': {
     #     'model_class': V3Model,
     #     'model_path': 'v3/denoising_model.pth',
-    #     'dropout_rate': 0.05,
-    #     'name': 'V3ModelName'
+    #     'init_args': {
+    #         'latent_dim': 256,
+    #         'dropout_rate': 0.05
+    #     },
+    #     'name': 'ImprovedAutoencoder'
     # },
 }
 
@@ -91,19 +71,15 @@ def load_model(version):
     if not model_path.exists():
         raise FileNotFoundError(f"Model file not found: {model_path}")
     
-    # Create model instance. If init_args provided, use them for construction.
     init_args = config.get('init_args')
     if init_args is not None:
         model = config['model_class'](**init_args).to(device)
     else:
-        # Backwards-compatible fallback
         model = config['model_class'](dropout_rate=config.get('dropout_rate', 0.0)).to(device)
     
-    # Load weights
     checkpoint = torch.load(model_path, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
-    
     return model
 
 models = {}
@@ -116,11 +92,6 @@ for version in MODEL_CONFIGS.keys():
         print(f"   Make sure to train the model first or check the path in MODEL_CONFIGS")
     except Exception as e:
         print(f"⚠️  Could not load {version}: {e}")
-
-# ============================================================================
-# IMAGE PROCESSING
-# ============================================================================
-
 transform = transforms.Compose([
     transforms.Resize((256, 256)),
     transforms.ToTensor()
@@ -130,75 +101,21 @@ def denoise_image(image_path, version='v2'):
     """Process image through denoising model"""
     if version not in models:
         raise ValueError(f"Model {version} not loaded")
-    
     model = models[version]
-    
-    # Load and preprocess image
     img = Image.open(image_path).convert('RGB')
     original_size = img.size
-    
-    # Transform
     img_tensor = transform(img).unsqueeze(0).to(device)
-    
-    # Denoise
     with torch.no_grad():
         denoised_tensor = model(img_tensor)
-    
-    # Convert back to PIL Image
     denoised_img = transforms.ToPILImage()(denoised_tensor.squeeze(0).cpu())
-    
-    # Resize to original size
     denoised_img = denoised_img.resize(original_size, Image.LANCZOS)
-    
     return img, denoised_img
-
-# ============================================================================
-# ROUTES - Generic versioned endpoints
-# ============================================================================
 
 @app.route('/')
 def index():
     """Main page with upload form"""
     available_versions = list(models.keys())
     return render_template('index.html', versions=available_versions)
-
-@app.route('/api/<version>/denoise', methods=['POST'])
-def api_denoise(version):
-    """API endpoint for denoising (returns JSON)"""
-    if version not in models:
-        return jsonify({'error': f'Version {version} not available'}), 404
-    
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    try:
-        # Save uploaded file
-        filename = file.filename
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
-        
-        # Process image
-        original_img, denoised_img = denoise_image(filepath, version)
-        
-        # Save results
-        original_path = os.path.join('static/results', f'original_{version}_{filename}')
-        denoised_path = os.path.join('static/results', f'denoised_{version}_{filename}')
-        
-        original_img.save(original_path)
-        denoised_img.save(denoised_path)
-        
-        return jsonify({
-            'success': True,
-            'original': f'/static/results/original_{version}_{filename}',
-            'denoised': f'/static/results/denoised_{version}_{filename}',
-            'version': version
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 @app.route('/<version>/denoise', methods=['GET', 'POST'])
 def denoise_page(version):
@@ -244,15 +161,6 @@ def denoise_page(version):
         return render_template('denoise.html', version=version, versions=list(models.keys()), 
                              error=f'Błąd przetwarzania: {str(e)}')
 
-# Flask automatycznie serwuje pliki z folderu 'static' przez /static/ URL
-# Nie potrzebujemy dodatkowego route
 
 if __name__ == '__main__':
-    print(f"\n{'='*60}")
-    print("Image Denoising Web App")
-    print(f"{'='*60}")
-    print(f"Available versions: {list(models.keys())}")
-    print(f"Device: {device}")
-    print(f"\nStarting server on http://localhost:5000")
-    print(f"{'='*60}\n")
     app.run(debug=True, host='0.0.0.0', port=5000)

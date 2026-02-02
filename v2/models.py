@@ -1,9 +1,7 @@
-"""Model definitions for v2"""
 import torch
 import torch.nn as nn
 
 class UNetDenoiser(nn.Module):
-    """U-Net architecture z skip connections dla lepszego zachowania szczegółów"""
     def __init__(self, dropout_rate=0.05):
         super(UNetDenoiser, self).__init__()
         

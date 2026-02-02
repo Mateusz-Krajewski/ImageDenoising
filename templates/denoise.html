@@ -151,8 +151,7 @@
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
         const form = document.getElementById('uploadForm');
-        
-        uploadArea.addEventListener('click', () => fileInput.click());
+        let isSubmitting = false;
         
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -168,15 +167,22 @@
             uploadArea.classList.remove('dragover');
             if (e.dataTransfer.files.length > 0) {
                 fileInput.files = e.dataTransfer.files;
-                form.submit();
+                submitForm();
             }
         });
         
         fileInput.addEventListener('change', () => {
             if (fileInput.files.length > 0) {
-                form.submit();
+                submitForm();
             }
         });
+        
+        function submitForm() {
+            if (!isSubmitting) {
+                isSubmitting = true;
+                form.submit();
+            }
+        }
     </script>
 </body>
 </html>
